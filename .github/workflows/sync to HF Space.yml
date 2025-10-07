@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - dev
+      # - staging   # uncomment later if you add a staging Space
   workflow_dispatch:
 
 jobs:
@@ -15,12 +16,11 @@ jobs:
       matrix:
         include:
           - branch: main
-            space: OLLAMA-Server-Test        # existing prod Space
+            space: OLLAMA-Server-Test        # Production Space
           - branch: dev
-            space: OLLAMA-Server-Dev         # new dev Space you’ll create
-
-    # Run only when current branch matches matrix entry
-    if: github.ref_name == matrix.branch
+            space: OLLAMA-Server-Dev         # Development Space
+          # - branch: staging
+          #   space: OLLAMA-Server-Staging   # Optional staging Space
 
     steps:
       - uses: actions/checkout@v3
@@ -36,7 +36,6 @@ jobs:
           git config --global user.email "github-actions@github.com"
           git config --global user.name "github-actions"
 
-          # Push current branch to the main branch of the corresponding HF Space
           git push --force \
             https://Dfrost8-2:$HF_TOKEN@huggingface.co/spaces/Dfrost8-2/${{ matrix.space }} \
             ${{ matrix.branch }}:main
