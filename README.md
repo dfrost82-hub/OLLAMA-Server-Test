@@ -1,27 +1,23 @@
 ---
-title: Ollama + Qwen2.5-VL (72B) — Multimodal Baseline
+title: Ollama Qwen2.5-VL:72B GPU Test
 emoji: 🧠
-colorFrom: purple
-colorTo: blue
+colorFrom: blue
+colorTo: green
 sdk: docker
-sdk_version: "1.0"
-app_file: start.sh
+sdk_version: "1.0.0"
+app_file: test_qwen_vl.py
 pinned: false
-license: apache-2.0
 ---
 
-# 🧩 Ollama + Qwen2.5-VL (72B) — Multimodal Baseline
+# 🧠 Ollama Qwen2.5-VL:72B GPU Test Space
 
-This Space extends the working **Qwen 2.5 (3B)** text-only baseline to the **Qwen 2.5-VL (72B)** multimodal model for text + image understanding, running locally on Ollama inside a Hugging Face Space.
+This Hugging Face Space launches **Ollama** inside a container, downloads the **Qwen 2.5 VL 72B** multimodal model, and validates connectivity through the REST API.
 
----
+### ✅ Features
+- Smart startup wait loop (~5 min readiness)
+- GPU-aware (NVIDIA L40s / CUDA visible)
+- Automatic model pull + basic text + image tests
 
-## 🚀 What It Does
-
-1. Installs and starts **Ollama**
-2. Pulls **`qwen2.5-vl:72b`**
-3. Runs **multimodal test** using `test_qwen_vl.py`  
-   (first a text-only prompt, then an image + text prompt)
-
-Example success logs:
-
+### 🧩 Usage
+1. Deploy to Hugging Face → Docker SDK  
+2. Logs show:
