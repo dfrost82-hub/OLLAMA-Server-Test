@@ -1,37 +1,42 @@
-name: Sync to Hugging Face hub (multi-branch)
+name: Sync branches to Hugging Face Spaces
 
 on:
   push:
     branches:
       - main
       - dev
-      - staging
-      # add more branches here if needed
   workflow_dispatch:
 
 jobs:
   sync-to-hub:
     runs-on: ubuntu-latest
 
+    strategy:
+      matrix:
+        include:
+          - branch: main
+            space: OLLAMA-Server-Test        # existing prod Space
+          - branch: dev
+            space: OLLAMA-Server-Dev         # new dev Space you’ll create
+
+    # Run only when current branch matches matrix entry
+    if: github.ref_name == matrix.branch
+
     steps:
-      # --- Checkout full repo with LFS files ---
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
           lfs: true
 
-      # --- Push to Hugging Face Space using same branch name ---
       - name: Push to Hugging Face Space
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
-          BRANCH=${GITHUB_REF_NAME}
-          echo "🔄 Syncing GitHub branch '$BRANCH' to Hugging Face Space branch '$BRANCH'"
+          echo "🔄 Syncing branch '${{ matrix.branch }}' to Space '${{ matrix.space }}'"
+          git config --global user.email "github-actions@github.com"
+          git config --global user.name "github-actions"
 
-          git remote add hf https://Dfrost8-2:$HF_TOKEN@huggingface.co/spaces/Dfrost8-2/OLLAMA-Server-Test
-
-          # ensure LFS is pushed too
-          git lfs push hf $BRANCH
-
-          # force push current branch to the same branch name on HF Space repo
-          git push --force hf $BRANCH:$BRANCH
+          # Push current branch to the main branch of the corresponding HF Space
+          git push --force \
+            https://Dfrost8-2:$HF_TOKEN@huggingface.co/spaces/Dfrost8-2/${{ matrix.space }} \
+            ${{ matrix.branch }}:main
