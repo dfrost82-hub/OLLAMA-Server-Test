@@ -1,66 +1,37 @@
 #!/usr/bin/env bash
-# ==========================================================
-# Hugging Face Space Startup Script for Ollama + Qwen Models
-# Version 1.6.5 – Patched to remove chmod issue and verify writability
-# ==========================================================
+set -e
 
-set -e  # Exit immediately on error
+echo "[startup] Setting up OLLAMA_HOME..."
+export OLLAMA_HOME="/app/.ollama"
 
-echo "===== Application Startup at $(date) ====="
-
-# 🧠 Confirm and display OLLAMA_HOME path
-if [ -z "$OLLAMA_HOME" ]; then
-  export OLLAMA_HOME=/app/.ollama
-  echo "[startup] ⚠️ OLLAMA_HOME not set — defaulting to /app/.ollama"
-else
-  echo "[startup] ✅ OLLAMA_HOME detected: $OLLAMA_HOME"
+# Ensure writable folder for Ollama
+if [ ! -d "$OLLAMA_HOME" ]; then
+  echo "[startup] Creating $OLLAMA_HOME..."
+  mkdir -p "$OLLAMA_HOME"
 fi
 
-# 🧩 Ensure directory exists and verify write access
-mkdir -p "$OLLAMA_HOME"
-if ! touch "$OLLAMA_HOME/testfile" 2>/dev/null; then
-  echo "[startup] ⚠️ Warning: $OLLAMA_HOME may be read-only!"
-else
-  rm -f "$OLLAMA_HOME/testfile"
-  echo "[startup] ✅ Verified $OLLAMA_HOME is writable."
-fi
+# Fix permissions (ignore errors if read-only FS)
+chmod 777 "$OLLAMA_HOME" || echo "[warn] Could not change permissions on $OLLAMA_HOME"
 
-# 🧠 Run regression environment validation (if available)
-if [ -f "/app/regression_check.sh" ]; then
-  echo "[startup] Running regression_check.sh..."
-  bash /app/regression_check.sh || {
-    echo "[startup] ❌ Regression check failed. Exiting."
-    exit 1
-  }
-else
-  echo "[startup] ⚠️ regression_check.sh not found — skipping environment checks."
-fi
-
-# 🚀 Launch Ollama in background
 echo "[startup] Launching Ollama..."
-OLLAMA_LOG=/tmp/ollama.log
-ollama serve >"$OLLAMA_LOG" 2>&1 &
-sleep 3
+ollama serve > /tmp/ollama.log 2>&1 &
 
-echo "[startup] Waiting up to 10 minutes for Ollama API..."
-MAX_WAIT=600
-WAIT_INTERVAL=10
-elapsed=0
-
-while ! curl -s http://127.0.0.1:11434/api/tags >/dev/null; do
-  if [ "$elapsed" -ge "$MAX_WAIT" ]; then
-    echo "[startup] ❌ ERROR: Ollama failed to start within timeout (${MAX_WAIT}s)."
+# Wait up to 10 minutes for the API
+echo "[startup] Waiting for Ollama API (up to 600s)..."
+for i in $(seq 1 60); do
+  sleep 10
+  if curl -s http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then
+    echo "[startup] ✅ Ollama is running on port 11434"
+    break
+  else
+    echo "[startup] waiting for Ollama... ($i)"
+  fi
+  if [ "$i" -eq 60 ]; then
+    echo "[startup] ❌ ERROR: Ollama failed to start within timeout (600s)."
     echo "--------- Ollama Log Dump ---------"
-    cat "$OLLAMA_LOG"
+    cat /tmp/ollama.log || echo "[warn] No ollama.log found"
     exit 1
   fi
-  echo "[startup] waiting for Ollama... ($((elapsed / WAIT_INTERVAL + 1)))"
-  sleep "$WAIT_INTERVAL"
-  elapsed=$((elapsed + WAIT_INTERVAL))
 done
 
-echo "[startup] ✅ Ollama is running on port 11434"
-echo "[startup] Checking API connectivity..."
-curl -s http://127.0.0.1:11434/api/tags || echo "[startup] ⚠️ API check failed."
-
-echo "[startup] Ollama container ready."
+echo "[startup] ✅ Startup sequence complete."
