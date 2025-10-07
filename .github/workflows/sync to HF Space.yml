@@ -1,19 +1,37 @@
-name: Sync to Hugging Face hub
+name: Sync to Hugging Face hub (multi-branch)
+
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - dev
+      - staging
+      # add more branches here if needed
   workflow_dispatch:
 
 jobs:
   sync-to-hub:
     runs-on: ubuntu-latest
+
     steps:
+      # --- Checkout full repo with LFS files ---
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
           lfs: true
-      - name: Push to hub
+
+      # --- Push to Hugging Face Space using same branch name ---
+      - name: Push to Hugging Face Space
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        run: git push --force space master:test
-        run: git push --force https://Dfrost8-2:$HF_TOKEN@huggingface.co/spaces/Dfrost8-2/OLLAMA-Server-Test test
+        run: |
+          BRANCH=${GITHUB_REF_NAME}
+          echo "🔄 Syncing GitHub branch '$BRANCH' to Hugging Face Space branch '$BRANCH'"
+
+          git remote add hf https://Dfrost8-2:$HF_TOKEN@huggingface.co/spaces/Dfrost8-2/OLLAMA-Server-Test
+
+          # ensure LFS is pushed too
+          git lfs push hf $BRANCH
+
+          # force push current branch to the same branch name on HF Space repo
+          git push --force hf $BRANCH:$BRANCH
