@@ -1,42 +1,26 @@
 #!/usr/bin/env bash
-set -euo pipefail
+echo "===== Application Startup at $(date) ====="
 
-LOG_TAG="[startup]"
-echo "$LOG_TAG Launching Ollama..."
+# Ensure writable paths exist
+mkdir -p /app/.ollama /app/ollama_models
 
-# Start Ollama in the background
-ollama serve > /tmp/ollama.log 2>&1 &
-sleep 5
+echo "[startup] Launching Ollama..."
+OLLAMA_HOME=/app/.ollama OLLAMA_MODELS=/app/ollama_models ollama serve > /tmp/ollama.log 2>&1 &
 
-# --- Wait until service responds ---
-for i in {1..30}; do
-  if curl -sf http://127.0.0.1:11434/api/tags > /dev/null; then
-    echo "$LOG_TAG ✅ Ollama is running on port 11434"
+# Wait until Ollama is ready
+for i in {1..40}; do
+  if curl -s http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then
+    echo "[startup] ✅ Ollama is running on port 11434"
     break
-  fi
-  echo "$LOG_TAG waiting for Ollama... ($i)"
-  sleep 1
-  if [ "$i" -eq 30 ]; then
-    echo "$LOG_TAG ❌ ERROR: Ollama failed to start."
-    cat /tmp/ollama.log || true
-    exit 1
+  else
+    echo "[startup] waiting for Ollama... ($i)"
+    sleep 3
   fi
 done
 
-# --- Pull a small base model to verify network ---
-if ! ollama list | grep -q "qwen2.5:3b"; then
-  echo "$LOG_TAG Downloading qwen2.5:3b..."
-  ollama pull qwen2.5:3b || echo "$LOG_TAG (optional) Model pull failed, you can retry manually."
+# Check if it started successfully
+if ! curl -s http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then
+  echo "[startup] ❌ ERROR: Ollama failed to start."
+  cat /tmp/ollama.log || true
+  exit 1
 fi
-
-# --- Connectivity test ---
-echo "$LOG_TAG Checking API connectivity..."
-curl -s http://127.0.0.1:11434/api/tags || echo "$LOG_TAG curl test failed."
-
-# --- Keep container alive for manual tests ---
-echo "$LOG_TAG Ollama container ready."
-echo "$LOG_TAG Try the following commands in the HF Space terminal:"
-echo "    ollama list"
-echo "    ollama run qwen2.5:3b"
-echo "    curl http://127.0.0.1:11434/api/tags"
-tail -f /tmp/ollama.log
