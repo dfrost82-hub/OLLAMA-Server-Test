@@ -1,37 +1,42 @@
-import base64
 import requests
-from PIL import Image
-import io
+import base64
 
 OLLAMA_URL = "http://127.0.0.1:11434/api/generate"
 MODEL = "qwen2.5-vl:72b"
 
-# --- prepare text and image ---
-txt_prompt = "Describe what you see in this image and suggest an artistic caption."
-image_path = "Cat 1.jpg"  # or any image available in /app
+def ask_ollama(prompt, image_path=None):
+    payload = {"model": MODEL, "prompt": prompt, "stream": False}
+    if image_path:
+        with open(image_path, "rb") as f:
+            payload["images"] = [base64.b64encode(f.read()).decode("utf-8")]
+    try:
+        r = requests.post(OLLAMA_URL, json=payload, timeout=300)
+        r.raise_for_status()
+        data = r.json()
+        return data.get("response", "No response received.")
+    except Exception as e:
+        return f"❌ Request failed: {e}"
 
-def encode_image(path):
-    with open(path, "rb") as f:
-        return base64.b64encode(f.read()).decode("utf-8")
+def run_tests():
+    print("🧠 Testing Qwen2.5-VL:72B via Ollama REST API...")
 
-try:
-    image_b64 = encode_image(image_path)
-except FileNotFoundError:
-    image_b64 = None
-    print(f"⚠️ Warning: {image_path} not found, running text-only test.")
+    # --- Test 1: Text-only ---
+    txt_prompt = "Summarize the key benefits of multimodal AI for creative tools."
+    print("\n--- Prompt 1 ---")
+    print(txt_prompt)
+    print("\n--- Response ---")
+    print(ask_ollama(txt_prompt))
 
-def ask_ollama(prompt, image_b64=None):
-    payload = {"model": MODEL, "prompt": prompt}
-    if image_b64:
-        payload["images"] = [image_b64]
+    # --- Test 2: Image + Text (if available) ---
+    img_path = "Cat 1.jpg"
+    try:
+        with open(img_path, "rb"):
+            print("\n--- Prompt 2 ---")
+            print("Describe this image and place a fish in the plate.")
+            print("\n--- Response ---")
+            print(ask_ollama("place a fish in the plate", img_path))
+    except FileNotFoundError:
+        print("\n[skip] Cat 1.jpg not found, skipping image test.")
 
-    print(f"\n--- Prompt to {MODEL} ---\n{prompt}\n")
-    r = requests.post(OLLAMA_URL, json=payload, timeout=120)
-    r.raise_for_status()
-    print("--- Response ---\n", r.text)
-
-# --- run tests ---
-print(f"🧠 Testing {MODEL} via Ollama REST API...")
-
-ask_ollama("Summarize: benefits of multimodal AI for creative tools.")
-ask_ollama(txt_prompt, image_b64=image_b64)
+if __name__ == "__main__":
+    run_tests()
