@@ -15,4 +15,5 @@ jobs:
       - name: Push to hub
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        run: git push --force space https://Dfrost8-2:$HF_TOKEN@huggingface.co/spaces/Dfrost8-2/OLLAMA-Server-Test test
+        run: git push --force space master:test
+        run: git push --force https://Dfrost8-2:$HF_TOKEN@huggingface.co/spaces/Dfrost8-2/OLLAMA-Server-Test test
