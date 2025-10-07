@@ -5,7 +5,6 @@ on:
     branches:
       - main
       - dev
-      # - staging   # uncomment later if you add a staging Space
   workflow_dispatch:
 
 jobs:
@@ -16,17 +15,16 @@ jobs:
       matrix:
         include:
           - branch: main
-            space: OLLAMA-Server-Test        # Production Space
+            space: OLLAMA-Server-Test
           - branch: dev
-            space: OLLAMA-Server-Dev         # Development Space
-          # - branch: staging
-          #   space: OLLAMA-Server-Staging   # Optional staging Space
+            space: OLLAMA-Server-Dev
 
     steps:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
           lfs: true
+          ref: ${{ matrix.branch }}   # ✅ ensures we’re on the actual branch
 
       - name: Push to Hugging Face Space
         env:
