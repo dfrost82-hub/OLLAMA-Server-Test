@@ -1,33 +1,30 @@
-# ================================
-# Hugging Face Space: Ollama Setup
-# ================================
+# ==========================================================
+# Ollama + Qwen 2.5-VL (72B)
+# Regression-safe build derived from working Qwen 2.5 3B baseline
+# ==========================================================
 
 FROM python:3.10-slim
 
-# ---- System packages ----
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl ca-certificates wget gnupg tini && \
-    rm -rf /var/lib/apt/lists/*
+# ---- Install core tools ----
+RUN apt-get update && apt-get install -y curl tini && rm -rf /var/lib/apt/lists/*
 
 # ---- Install Ollama ----
 RUN curl -fsSL https://ollama.com/install.sh | bash
 
-# ---- Working directory ----
+# ---- Environment ----
+ENV OLLAMA_HOST=0.0.0.0
+ENV OLLAMA_PORT=11434
+
+# ---- App setup ----
 WORKDIR /app
-COPY start.sh /app/start.sh
-RUN chmod +x /app/start.sh
 
-# ---- Model cache (persists between runs) ----
-ENV OLLAMA_MODELS=/data/ollama
-RUN mkdir -p /data/ollama && chmod -R 777 /data/ollama
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# ---- Expose default port ----
-EXPOSE 11434
+COPY start.sh .
+COPY test_qwen_vl.py .
 
-# ---- Run as non-root for safety ----
-RUN useradd -m user
-USER user
-
-# ---- Entrypoint ----
 ENTRYPOINT ["/usr/bin/tini", "--"]
-CMD ["bash", "/app/start.sh"]
+
+# Run Ollama, wait, then test multimodal reasoning
+CMD ["bash", "-c", "bash /app/start.sh & sleep 40 && python /app/test_qwen_vl.py && tail -f /tmp/ollama.log"]
