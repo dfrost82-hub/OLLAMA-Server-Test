@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # ==========================================================
 # Hugging Face Space Startup Script for Ollama + Qwen Models
-# Version 1.6.4 – with OLLAMA_HOME visibility + regression check
+# Version 1.6.5 – Patched to remove chmod issue and verify writability
 # ==========================================================
 
-set -e  # Exit on first failure
+set -e  # Exit immediately on error
 
 echo "===== Application Startup at $(date) ====="
 
@@ -16,10 +16,16 @@ else
   echo "[startup] ✅ OLLAMA_HOME detected: $OLLAMA_HOME"
 fi
 
-# 🧩 Create directory if missing (safety check)
-mkdir -p "$OLLAMA_HOME" && chmod -R 777 "$OLLAMA_HOME"
+# 🧩 Ensure directory exists and verify write access
+mkdir -p "$OLLAMA_HOME"
+if ! touch "$OLLAMA_HOME/testfile" 2>/dev/null; then
+  echo "[startup] ⚠️ Warning: $OLLAMA_HOME may be read-only!"
+else
+  rm -f "$OLLAMA_HOME/testfile"
+  echo "[startup] ✅ Verified $OLLAMA_HOME is writable."
+fi
 
-# 🧠 Run regression environment validation
+# 🧠 Run regression environment validation (if available)
 if [ -f "/app/regression_check.sh" ]; then
   echo "[startup] Running regression_check.sh..."
   bash /app/regression_check.sh || {
@@ -44,6 +50,7 @@ elapsed=0
 while ! curl -s http://127.0.0.1:11434/api/tags >/dev/null; do
   if [ "$elapsed" -ge "$MAX_WAIT" ]; then
     echo "[startup] ❌ ERROR: Ollama failed to start within timeout (${MAX_WAIT}s)."
+    echo "--------- Ollama Log Dump ---------"
     cat "$OLLAMA_LOG"
     exit 1
   fi
