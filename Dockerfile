@@ -35,4 +35,4 @@ COPY README.md .
 EXPOSE 11434
 
 # Startup: serve Ollama, wait for readiness, run tests
-CMD ["bash", "-c", "bash /app/start.sh && python /app/test_qwen_vl.py &&]()
+CMD ["bash", "-c", "bash /app/start.sh && python /app/test_qwen_vl.py && tail -f /tmp/ollama.log"]
