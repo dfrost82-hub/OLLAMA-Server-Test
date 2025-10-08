@@ -1,33 +1,28 @@
-# ================================
-# Hugging Face Space: Ollama Setup
-# ================================
+# Baseline: Ollama server exposing native REST API
+FROM debian:stable-slim
 
-FROM python:3.10-slim
+ENV DEBIAN_FRONTEND=noninteractive \
+    HOME=/root \
+    OLLAMA_HOME=/root/.ollama \
+    OLLAMA_HOST=0.0.0.0 \
+    OLLAMA_MODELS=/data/ollama
 
-# ---- System packages ----
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl ca-certificates wget gnupg tini && \
+    ca-certificates curl tini bash jq && \
     rm -rf /var/lib/apt/lists/*
 
-# ---- Install Ollama ----
+# Install Ollama
 RUN curl -fsSL https://ollama.com/install.sh | bash
 
-# ---- Working directory ----
-WORKDIR /app
-COPY start.sh /app/start.sh
-RUN chmod +x /app/start.sh
+# Ensure writable caches (keys/config + models)
+RUN mkdir -p "$OLLAMA_HOME" /data/ollama && chmod -R 777 "$OLLAMA_HOME" /data/ollama
 
-# ---- Model cache (persists between runs) ----
-ENV OLLAMA_MODELS=/data/ollama
-RUN mkdir -p /data/ollama && chmod -R 777 /data/ollama
+# Runtime start script (pulls model if missing)
+COPY start.sh /usr/local/bin/start.sh
+RUN chmod +x /usr/local/bin/start.sh
 
-# ---- Expose default port ----
 EXPOSE 11434
+HEALTHCHECK --interval=10s --timeout=3s --retries=12 CMD curl -sf http://127.0.0.1:11434/api/version >/dev/null || exit 1
 
-# ---- Run as non-root for safety ----
-RUN useradd -m user
-USER user
-
-# ---- Entrypoint ----
-ENTRYPOINT ["/usr/bin/tini", "--"]
-CMD ["bash", "/app/start.sh"]
+ENTRYPOINT ["/usr/bin/tini","--"]
+CMD ["/usr/local/bin/start.sh"]
