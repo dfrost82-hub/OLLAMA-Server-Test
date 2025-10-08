@@ -1,23 +1,33 @@
-# Baseline: Ollama server exposing native REST API (no extra apps)
-FROM debian:stable-slim
+# ================================
+# Hugging Face Space: Ollama Setup
+# ================================
 
-ENV DEBIAN_FRONTEND=noninteractive \
-    OLLAMA_HOST=0.0.0.0 \
-    OLLAMA_MODELS=/data/ollama
+FROM python:3.10-slim
 
+# ---- System packages ----
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates curl tini && \
+    curl ca-certificates wget gnupg tini && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Ollama
+# ---- Install Ollama ----
 RUN curl -fsSL https://ollama.com/install.sh | bash
 
-# Prepare model cache dir
+# ---- Working directory ----
+WORKDIR /app
+COPY start.sh /app/start.sh
+RUN chmod +x /app/start.sh
+
+# ---- Model cache (persists between runs) ----
+ENV OLLAMA_MODELS=/data/ollama
 RUN mkdir -p /data/ollama && chmod -R 777 /data/ollama
 
-# Pre-pull baseline model (VL 3B). Safe to ignore if offline; Space will pull on first run.
-RUN ollama pull qwen2.5vl:3b || true
-
+# ---- Expose default port ----
 EXPOSE 11434
-ENTRYPOINT ["/usr/bin/tini","--"]
-CMD ["ollama","serve"]
+
+# ---- Run as non-root for safety ----
+RUN useradd -m user
+USER user
+
+# ---- Entrypoint ----
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["bash", "/app/start.sh"]
