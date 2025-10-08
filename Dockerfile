@@ -22,11 +22,11 @@ RUN mkdir -p /data/ollama /cache/hf && chmod -R 777 /data/ollama /cache/hf
 WORKDIR /app
 COPY app/ /app/app/
 COPY README.md /app/
-RUN pip3 install --no-cache-dir fastapi uvicorn[standard] pydantic requests pillow prometheus-client
+RUN pip3 install --no-cache-dir fastapi uvicorn[standard] pydantic requests pillow prometheus-client gradio prometheus-client
 
 # Pre-pull baseline model (VL 3B)
 RUN ollama pull qwen2.5vl:3b || true
 
 EXPOSE 7860 11434
 ENTRYPOINT ["/usr/bin/tini","--"]
-CMD bash -lc '(ollama serve > /tmp/ollama.log 2>&1 &) && sleep 2 && uvicorn app.api:api --host 0.0.0.0 --port 7860'
+CMD bash -lc '(ollama serve > /tmp/ollama.log 2>&1 &) && sleep 2 && python /app/app/app_gradio.py'
