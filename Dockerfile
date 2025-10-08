@@ -8,7 +8,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     OLLAMA_MODELS=/data/ollama
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates curl tini bash jq && \
+    ca-certificates curl tini jq && \
     rm -rf /var/lib/apt/lists/*
 
 # Install Ollama
