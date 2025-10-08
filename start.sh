@@ -1,30 +1,42 @@
 #!/usr/bin/env bash
-echo "===== Application Startup at $(date) ====="
+set -euo pipefail
 
-echo "[startup] Launching Ollama..."
+LOG_TAG="[startup]"
+echo "$LOG_TAG Launching Ollama..."
+
+# Start Ollama in the background
 ollama serve > /tmp/ollama.log 2>&1 &
-OLLAMA_PID=$!
+sleep 5
 
-# Wait for Ollama process and API
-echo "[startup] Waiting up to 10 minutes for Ollama API..."
-for i in {1..200}; do  # 200 × 3s = ~600s
-  if curl -s http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then
-    echo "[startup] ✅ Ollama API reachable on port 11434"
+# --- Wait until service responds ---
+for i in {1..30}; do
+  if curl -sf http://127.0.0.1:11434/api/tags > /dev/null; then
+    echo "$LOG_TAG ✅ Ollama is running on port 11434"
     break
   fi
-  if ! ps -p $OLLAMA_PID >/dev/null; then
-    echo "[startup] ❌ Ollama exited prematurely. Dumping log:"
+  echo "$LOG_TAG waiting for Ollama... ($i)"
+  sleep 1
+  if [ "$i" -eq 30 ]; then
+    echo "$LOG_TAG ❌ ERROR: Ollama failed to start."
     cat /tmp/ollama.log || true
     exit 1
   fi
-  echo "[startup] waiting for Ollama... ($i)"
-  sleep 3
 done
 
-echo "[startup] Downloading qwen2.5-vl:72b..."
-ollama pull qwen2.5-vl:72b || echo "[startup] ⚠️ Model pull skipped or cached."
+# --- Pull a small base model to verify network ---
+if ! ollama list | grep -q "qwen2.5:3b"; then
+  echo "$LOG_TAG Downloading qwen2.5:3b..."
+  ollama pull qwen2.5:3b || echo "$LOG_TAG (optional) Model pull failed, you can retry manually."
+fi
 
-echo "[startup] Checking API connectivity..."
-curl -s http://127.0.0.1:11434/api/tags || cat /tmp/ollama.log
+# --- Connectivity test ---
+echo "$LOG_TAG Checking API connectivity..."
+curl -s http://127.0.0.1:11434/api/tags || echo "$LOG_TAG curl test failed."
 
-echo "[startup] Ollama container ready."
+# --- Keep container alive for manual tests ---
+echo "$LOG_TAG Ollama container ready."
+echo "$LOG_TAG Try the following commands in the HF Space terminal:"
+echo "    ollama list"
+echo "    ollama run qwen2.5:3b"
+echo "    curl http://127.0.0.1:11434/api/tags"
+tail -f /tmp/ollama.log
