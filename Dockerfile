@@ -1,8 +1,8 @@
 FROM debian:stable-slim
 
 ENV DEBIAN_FRONTEND=noninteractive \
-    HOME=/root \
-    OLLAMA_HOME=/root/.ollama \
+    HOME=/data \
+    OLLAMA_HOME=/data/.ollama \
     OLLAMA_HOST=0.0.0.0 \
     OLLAMA_MODELS=/data/ollama
 
@@ -12,7 +12,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 RUN curl -fsSL https://ollama.com/install.sh | bash
 
-RUN mkdir -p "$OLLAMA_HOME" /data/ollama && chmod -R 777 "$OLLAMA_HOME" /data/ollama
+# Make sure runtime user (possibly non-root) can write
+RUN mkdir -p /data/.ollama /data/ollama && chmod -R 777 /data
 
 COPY start.sh /usr/local/bin/start.sh
 RUN chmod +x /usr/local/bin/start.sh
