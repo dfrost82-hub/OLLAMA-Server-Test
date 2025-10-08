@@ -1,42 +1,32 @@
+# start.sh
 #!/usr/bin/env bash
 set -euo pipefail
 
-LOG_TAG="[startup]"
-echo "$LOG_TAG Launching Ollama..."
+# Ensure the VL model is present at boot; override via env if needed
+MODEL_NAME="${MODEL_NAME:-qwen2.5vl:3b}"
+PULL_ON_START="${PULL_ON_START:-true}"
+MAX_WAIT="${MAX_WAIT:-60}"
 
-# Start Ollama in the background
-ollama serve > /tmp/ollama.log 2>&1 &
-sleep 5
+# Start server in background
+(ollama serve >/tmp/ollama.log 2>&1 &)
 
-# --- Wait until service responds ---
-for i in {1..30}; do
-  if curl -sf http://127.0.0.1:11434/api/tags > /dev/null; then
-    echo "$LOG_TAG ✅ Ollama is running on port 11434"
+# Wait for readiness
+for ((i=0;i<MAX_WAIT;i++)); do
+  if curl -sf http://127.0.0.1:11434/api/version >/dev/null; then
     break
   fi
-  echo "$LOG_TAG waiting for Ollama... ($i)"
   sleep 1
-  if [ "$i" -eq 30 ]; then
-    echo "$LOG_TAG ❌ ERROR: Ollama failed to start."
-    cat /tmp/ollama.log || true
-    exit 1
-  fi
 done
 
-# --- Pull a small base model to verify network ---
-if ! ollama list | grep -q "qwen2.5:3b"; then
-  echo "$LOG_TAG Downloading qwen2.5:3b..."
-  ollama pull qwen2.5:3b || echo "$LOG_TAG (optional) Model pull failed, you can retry manually."
+# Ensure the VL model is present (self-heal on boot)
+if [ "$PULL_ON_START" = "true" ]; then
+  if ! curl -sf http://127.0.0.1:11434/api/tags | grep -q '"name":"'"${MODEL_NAME}"'"'; then
+    curl -s -X POST http://127.0.0.1:11434/api/pull -d '{"name":"'"${MODEL_NAME}"'"}' || true
+  fi
 fi
 
-# --- Connectivity test ---
-echo "$LOG_TAG Checking API connectivity..."
-curl -s http://127.0.0.1:11434/api/tags || echo "$LOG_TAG curl test failed."
+# Optional: show tags once
+curl -s http://127.0.0.1:11434/api/tags || true
 
-# --- Keep container alive for manual tests ---
-echo "$LOG_TAG Ollama container ready."
-echo "$LOG_TAG Try the following commands in the HF Space terminal:"
-echo "    ollama list"
-echo "    ollama run qwen2.5:3b"
-echo "    curl http://127.0.0.1:11434/api/tags"
-tail -f /tmp/ollama.log
+# Keep server in foreground
+exec ollama serve
